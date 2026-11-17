@@ -1,0 +1,25 @@
+name = "lova-mining"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
+
+# Cloudflare Pages environment variables (non-secret defaults).
+# Set sensitive secrets in Cloudflare Dashboard -> Pages -> Settings -> Environment variables
+# or via `npx wrangler pages secret put <NAME>`:
+#   SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY
+#   TELEGRAM_BOT_TOKEN
+#   TELEGRAM_BOT_USERNAME
+#   SESSION_SECRET
+#   ADMIN_BOOTSTRAP_SECRET
+#   ADMIN_TELEGRAM_IDS
+#   GRAM_JETTON_MASTER_ADDRESS
+#   ADMIN_TON_WALLET_ADDRESS
+#   ADMIN_LOVA_WALLET_ADDRESS
+#   LOVA_JETTON_MASTER_ADDRESS
+#   TON_API_KEY
+[vars]
+TELEGRAM_ALLOW_DEV_PREVIEW = "false"
+GRAM_JETTON_DECIMALS = "9"
+LOVA_JETTON_DECIMALS = "9"
+TON_API_ENDPOINT = "https://tonapi.io/v2"

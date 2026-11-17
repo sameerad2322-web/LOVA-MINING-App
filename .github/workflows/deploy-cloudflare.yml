@@ -1,0 +1,46 @@
+name: Build and Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build_and_verify:
+    name: Typecheck & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run TypeScript typecheck
+        run: npm run lint
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Verify Cloudflare edge bundle
+        run: npx esbuild server/edgeEngine.ts --bundle --platform=neutral --main-fields=browser,module,main --conditions=workerd,worker,browser --format=esm --outfile=/tmp/edge-bundle.mjs --external:node:* --external:crypto
+
+      - name: Deploy to Cloudflare Pages
+        if: >-
+          github.event_name != 'pull_request' &&
+          secrets.CLOUDFLARE_API_TOKEN != '' &&
+          secrets.CLOUDFLARE_ACCOUNT_ID != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ vars.CF_PAGES_PROJECT || 'lova-mining' }}

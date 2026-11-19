@@ -10,7 +10,7 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "lova-mining-db"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "335f871d-851d-4aa1-9232-b50b18b00141"
 
 # Cloudflare Pages environment variables (non-secret defaults).
 # Set sensitive secrets in Cloudflare Dashboard -> Pages -> Settings -> Environment variables

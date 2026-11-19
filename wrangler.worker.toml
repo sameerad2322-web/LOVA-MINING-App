@@ -16,7 +16,7 @@ run_worker_first = ["/api/*", "/tonconnect-manifest.json"]
 [[d1_databases]]
 binding = "DB"
 database_name = "lova-mining-db"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "335f871d-851d-4aa1-9232-b50b18b00141"
 
 # Set Worker secrets via:
 #   npx wrangler secret put TELEGRAM_BOT_TOKEN -c wrangler.worker.toml

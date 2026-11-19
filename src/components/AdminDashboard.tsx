@@ -454,7 +454,11 @@ export function AdminDashboard({
             <h1 className="text-base font-bold text-white">LOVA Admin Panel</h1>
             <p className="text-xs text-slate-400">
               Role: <span className="text-blue-300 font-medium">{adminAuth.role}</span> ·{' '}
-              {systemStatus.databaseMode === 'supabase' ? 'Supabase PostgreSQL' : 'Local Preview DB'}
+              {systemStatus.databaseMode === 'd1'
+                ? 'Cloudflare D1 (SQLite)'
+                : systemStatus.databaseMode === 'local_sqlite'
+                  ? 'Local SQLite (D1 Mode)'
+                  : 'D1 Setup Pending'}
             </p>
           </div>
         </div>
@@ -2339,16 +2343,18 @@ export function AdminDashboard({
                     <Database className="w-5 h-5 text-blue-400" />
                     <div>
                       <h2 className="text-base font-semibold text-white">
-                        Supabase PostgreSQL &amp; Setup Readiness
+                        Cloudflare D1 (SQLite) &amp; Setup Readiness
                       </h2>
                       <p className="text-xs text-slate-400">
                         Active storage:{' '}
                         <strong className="text-slate-200">
-                          {systemStatus.databaseMode === 'supabase'
-                            ? 'Supabase PostgreSQL (Live)'
-                            : systemStatus.databaseMode === 'supabase_needs_schema'
-                              ? 'Supabase Credentials Found — Schema Not Applied Yet'
-                              : 'Local Preview Store (.data/lova-store.json)'}
+                          {systemStatus.databaseMode === 'd1'
+                            ? 'Cloudflare D1 Edge SQLite (Live)'
+                            : systemStatus.databaseMode === 'd1_needs_schema'
+                              ? 'D1 Database Bound — schema.sql Not Applied Yet'
+                              : systemStatus.databaseMode === 'd1_not_bound'
+                                ? 'Cloudflare D1 Binding "DB" Not Configured'
+                                : 'Local SQLite D1 Emulator (.data/lova-d1.sqlite)'}
                         </strong>
                       </p>
                     </div>
@@ -2360,7 +2366,7 @@ export function AdminDashboard({
                         const res = await apiFetch<{ sql: string }>('/api/admin/schema-sql', {}, true);
                         await navigator.clipboard.writeText(res.sql);
                         setCopiedSchema(true);
-                        onToast('success', 'Copied supabase/schema.sql to clipboard!');
+                        onToast('success', 'Copied schema.sql (Cloudflare D1) to clipboard!');
                         setTimeout(() => setCopiedSchema(false), 2500);
                       } catch (err) {
                         onToast('error', (err as Error).message);
@@ -2369,15 +2375,17 @@ export function AdminDashboard({
                     className="min-h-[40px] px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-1.5"
                   >
                     {copiedSchema ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {copiedSchema ? 'Copied SQL!' : 'Copy supabase/schema.sql'}
+                    {copiedSchema ? 'Copied SQL!' : 'Copy schema.sql (D1)'}
                   </button>
                 </div>
 
-                {systemStatus.databaseMode !== 'supabase' && (
+                {systemStatus.databaseMode !== 'd1' && (
                   <p className="text-xs text-amber-200/90 leading-relaxed bg-amber-950/25 border border-amber-500/25 rounded-xl p-3.5">
-                    {systemStatus.databaseMode === 'supabase_needs_schema'
-                      ? 'Your Supabase project is connected, but the 16 LOVA tables have not been created yet. Click "Copy supabase/schema.sql" above, open Supabase -> SQL Editor, paste and run it once. The server will automatically switch to live PostgreSQL within 30 seconds.'
-                      : 'Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Secrets and run supabase/schema.sql in Supabase SQL Editor for persistent cloud database storage.'}
+                    {systemStatus.databaseMode === 'd1_needs_schema'
+                      ? 'Your Cloudflare D1 binding ("DB") is active, but the 18 LOVA tables have not been created yet. Run `npx wrangler d1 execute lova-mining-db --remote --file=./schema.sql` (or paste schema.sql into Cloudflare Dashboard -> D1 -> Console).'
+                      : systemStatus.databaseMode === 'd1_not_bound'
+                        ? 'Bind your Cloudflare D1 database as "DB" in wrangler.toml / wrangler.worker.toml (or Cloudflare Dashboard -> Settings -> Bindings) and execute schema.sql.'
+                        : 'Running locally on Node SQLite D1 emulator (.data/lova-d1.sqlite). On Cloudflare Workers/Pages, bind D1 as "DB" and run `npx wrangler d1 execute lova-mining-db --remote --file=./schema.sql`.'}
                   </p>
                 )}
               </section>

@@ -9,7 +9,7 @@ import {
   serverConfig,
 } from './config.ts';
 import { db } from './db.ts';
-import { SUPABASE_SCHEMA_SQL } from './schemaSql.ts';
+import { D1_SCHEMA_SQL } from './schemaSql.ts';
 import {
   createRateLimiter,
   extractBearerOrCookie,
@@ -1799,13 +1799,13 @@ export function createApiRouter() {
 
   router.get('/admin/schema-sql', requireAdmin, (_req, res) => {
     try {
-      const schemaPath = path.resolve(process.cwd(), 'supabase', 'schema.sql');
+      const schemaPath = path.resolve(process.cwd(), 'schema.sql');
       const sql = fs.existsSync(schemaPath)
         ? fs.readFileSync(schemaPath, 'utf8')
-        : SUPABASE_SCHEMA_SQL;
+        : D1_SCHEMA_SQL;
       res.json({ sql });
     } catch {
-      res.json({ sql: SUPABASE_SCHEMA_SQL });
+      res.json({ sql: D1_SCHEMA_SQL });
     }
   });
 

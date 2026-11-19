@@ -9,3 +9,7 @@
 /tonconnect-manifest.json
   Access-Control-Allow-Origin: *
   Cache-Control: no-store
+
+/icon.png
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=86400

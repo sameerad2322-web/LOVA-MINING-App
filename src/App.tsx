@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { TonConnectUIProvider } from '@tonconnect/ui-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { TonConnectUIProvider, useTonConnectUI } from '@tonconnect/ui-react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -39,7 +39,7 @@ type MainTab = 'home' | 'friends' | 'tasks' | 'levelup' | 'wallet' | 'profile';
 const BACKDROP_SRC = '/src/assets/images/lova_atmosphere_1794836081734.jpg';
 
 const FALLBACK_PUBLIC_STATUS: PublicSystemStatus = {
-  databaseMode: 'local_preview',
+  databaseMode: 'local_sqlite',
   telegramAuthMode: 'hmac_strict',
   telegramBotConfigured: false,
   telegramBotUsername: null,
@@ -54,7 +54,47 @@ const FALLBACK_PUBLIC_STATUS: PublicSystemStatus = {
   adminTonWalletAddress: null,
   tonApiConfigured: false,
   adminBootstrapConfigured: false,
+  publicAppUrl: null,
 };
+
+function isPrivatePreviewHost(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+  return (
+    lower === 'localhost' ||
+    lower === '127.0.0.1' ||
+    lower === '0.0.0.0' ||
+    lower.endsWith('.run.app')
+  );
+}
+
+function resolveTonManifestUrl(publicAppUrl?: string | null): string {
+  const envOverride = (import.meta.env.VITE_TONCONNECT_MANIFEST_URL || '').trim();
+  if (envOverride) return envOverride;
+  if (typeof window === 'undefined') return '/tonconnect-manifest.json';
+  if (isPrivatePreviewHost(window.location.hostname) && publicAppUrl) {
+    return `${publicAppUrl.replace(/\/+$/, '')}/tonconnect-manifest.json`;
+  }
+  return `${window.location.origin}/tonconnect-manifest.json`;
+}
+
+function isTonManifestError(err: unknown): boolean {
+  if (!err) return false;
+  const name =
+    typeof err === 'object' && 'name' in err ? String((err as { name?: unknown }).name) : '';
+  const message =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'object' && 'message' in err
+        ? String((err as { message?: unknown }).message)
+        : String(err);
+  return (
+    name === 'ManifestContentErrorError' ||
+    name === 'ManifestNotFoundError' ||
+    /App manifest content error|ManifestContentErrorError|ManifestNotFoundError|TON_CONNECT_SDK.*manifest/i.test(
+      message
+    )
+  );
+}
 
 function detectAdminRoute(): boolean {
   if (typeof window === 'undefined') return false;
@@ -69,10 +109,50 @@ function detectAdminRoute(): boolean {
 }
 
 export default function App() {
-  const manifestUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/tonconnect-manifest.json`
-      : '/tonconnect-manifest.json';
+  const [manifestUrl, setManifestUrl] = useState<string | null>(() => {
+    const envOverride = (import.meta.env.VITE_TONCONNECT_MANIFEST_URL || '').trim();
+    if (envOverride) return envOverride;
+    if (typeof window === 'undefined') return '/tonconnect-manifest.json';
+    if (!isPrivatePreviewHost(window.location.hostname)) {
+      return `${window.location.origin}/tonconnect-manifest.json`;
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (manifestUrl !== null) return;
+    let active = true;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 1500);
+
+    fetch('/api/system/public', { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { systemStatus?: PublicSystemStatus } | null) => {
+        if (!active) return;
+        setManifestUrl(resolveTonManifestUrl(data?.systemStatus?.publicAppUrl));
+      })
+      .catch(() => {
+        if (!active) return;
+        setManifestUrl(resolveTonManifestUrl(null));
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [manifestUrl]);
+
+  if (!manifestUrl) {
+    return (
+      <div className="min-h-screen bg-[#060913] text-slate-100 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-2xl border-2 border-blue-500/40 border-t-blue-400 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <TonConnectUIProvider manifestUrl={manifestUrl}>
@@ -82,12 +162,14 @@ export default function App() {
 }
 
 function LovaRootRouter() {
+  const [tonConnectUI] = useTonConnectUI();
   const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() => detectAdminRoute());
   const [toast, setToast] = useState<{
     id: number;
     type: 'success' | 'error' | 'info';
     msg: string;
   } | null>(null);
+  const lastManifestToastAt = useRef<number>(0);
 
   useEffect(() => {
     const onPopState = () => {
@@ -108,6 +190,44 @@ function LovaRootRouter() {
       setToast((curr) => (curr?.id === id ? null : curr));
     }, 4500);
   }, []);
+
+  const notifyManifestError = useCallback(() => {
+    const now = Date.now();
+    if (now - lastManifestToastAt.current < 5000) return;
+    lastManifestToastAt.current = now;
+    const isPreview =
+      typeof window !== 'undefined' && isPrivatePreviewHost(window.location.hostname);
+    showToast(
+      'error',
+      isPreview
+        ? 'TON wallet cannot read tonconnect-manifest.json from this auth-gated preview URL. Deploy to Cloudflare or set APP_URL to your public HTTPS domain.'
+        : 'TON wallet could not verify /tonconnect-manifest.json. Please ensure the domain is publicly reachable over HTTPS.'
+    );
+  }, [showToast]);
+
+  useEffect(() => {
+    const unsubscribe = tonConnectUI.onStatusChange(
+      () => {},
+      (err) => {
+        if (isTonManifestError(err)) {
+          notifyManifestError();
+        }
+      }
+    );
+
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (isTonManifestError(event.reason)) {
+        event.preventDefault();
+        notifyManifestError();
+      }
+    };
+
+    window.addEventListener('unhandledrejection', onUnhandledRejection);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
+    };
+  }, [tonConnectUI, notifyManifestError]);
 
   const navigateToWorkerApp = useCallback(() => {
     if (typeof window !== 'undefined') {

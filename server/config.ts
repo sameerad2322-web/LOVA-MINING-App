@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import dotenv from 'dotenv';
 import type { AppSettings, PublicSystemStatus } from '../src/types/lova.ts';
 
@@ -28,10 +28,6 @@ export const serverConfig = {
   telegramAllowDevPreview:
     process.env.TELEGRAM_ALLOW_DEV_PREVIEW !== 'false' && process.env.NODE_ENV !== 'production',
 
-  // Supabase
-  supabaseUrl: (process.env.SUPABASE_URL || '').trim(),
-  supabaseServiceRoleKey: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim(),
-
   // Session & Admin
   explicitSessionSecret: (process.env.SESSION_SECRET || '').trim() || null,
   sessionSecret: (process.env.SESSION_SECRET || '').trim() || runtimeFallbackSecret,
@@ -60,14 +56,14 @@ export const serverConfig = {
     : 9,
 };
 
-let supabaseSchemaReady = false;
+let databaseModeState: PublicSystemStatus['databaseMode'] = 'local_sqlite';
 
-export function setSupabaseSchemaReady(ready: boolean) {
-  supabaseSchemaReady = ready;
+export function setDatabaseModeState(mode: PublicSystemStatus['databaseMode']) {
+  databaseModeState = mode;
 }
 
-export function hasSupabaseConfig(): boolean {
-  return Boolean(serverConfig.supabaseUrl && serverConfig.supabaseServiceRoleKey);
+export function getDatabaseModeState(): PublicSystemStatus['databaseMode'] {
+  return databaseModeState;
 }
 
 export function resolveEffectiveTonConfig(settings?: Partial<AppSettings> | null) {
@@ -125,6 +121,27 @@ export function isGramVerificationConfigured(
   );
 }
 
+export function resolvePublicAppUrl(rawAppUrl: string | undefined | null): string | null {
+  const trimmed = (rawAppUrl || '').trim().replace(/\/+$/, '');
+  if (!trimmed.startsWith('https://')) return null;
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      !host ||
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host.endsWith('.run.app')
+    ) {
+      return null;
+    }
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return null;
+  }
+}
+
 export function getPublicSystemStatus(
   gramFee = 0.05,
   overrideAdminWallet?: string | null,
@@ -135,14 +152,8 @@ export function getPublicSystemStatus(
     admin_ton_wallet_override: overrideAdminWallet ?? settings?.admin_ton_wallet_override,
   });
 
-  const dbMode: PublicSystemStatus['databaseMode'] = !hasSupabaseConfig()
-    ? 'local_preview'
-    : supabaseSchemaReady
-      ? 'supabase'
-      : 'supabase_needs_schema';
-
   return {
-    databaseMode: dbMode,
+    databaseMode: databaseModeState,
     telegramAuthMode:
       serverConfig.telegramBotToken && !serverConfig.telegramAllowDevPreview
         ? 'hmac_strict'
@@ -169,5 +180,6 @@ export function getPublicSystemStatus(
     adminBootstrapConfigured: Boolean(
       serverConfig.adminBootstrapSecret || serverConfig.adminTelegramIds.length > 0
     ),
+    publicAppUrl: resolvePublicAppUrl(serverConfig.appUrl),
   };
 }

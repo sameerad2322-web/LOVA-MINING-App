@@ -217,7 +217,7 @@ export interface AppSettings {
 }
 
 export interface PublicSystemStatus {
-  databaseMode: 'supabase' | 'supabase_needs_schema' | 'local_preview';
+  databaseMode: 'd1' | 'd1_needs_schema' | 'd1_not_bound' | 'local_sqlite';
   telegramAuthMode: 'hmac_strict' | 'preview_fallback';
   telegramBotConfigured: boolean;
   telegramBotUsername: string | null;
@@ -233,6 +233,7 @@ export interface PublicSystemStatus {
   adminLovaWalletAddress?: string | null;
   tonApiConfigured: boolean;
   adminBootstrapConfigured: boolean;
+  publicAppUrl?: string | null;
 }
 
 export interface AuthBootstrapPayload {

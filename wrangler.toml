@@ -3,11 +3,18 @@ compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
 
+# Cloudflare D1 Database Binding (Required)
+# Create database with: npx wrangler d1 create lova-mining-db
+# Replace database_id below with the UUID output by Wrangler, then run:
+#   npx wrangler d1 execute lova-mining-db --remote --file=./schema.sql
+[[d1_databases]]
+binding = "DB"
+database_name = "lova-mining-db"
+database_id = "YOUR_D1_DATABASE_ID"
+
 # Cloudflare Pages environment variables (non-secret defaults).
 # Set sensitive secrets in Cloudflare Dashboard -> Pages -> Settings -> Environment variables
 # or via `npx wrangler pages secret put <NAME>`:
-#   SUPABASE_URL
-#   SUPABASE_SERVICE_ROLE_KEY
 #   TELEGRAM_BOT_TOKEN
 #   TELEGRAM_BOT_USERNAME
 #   SESSION_SECRET

@@ -1,10 +1,16 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { serverConfig } from './server/config.ts';
+import { serverConfig, setDatabaseModeState } from './server/config.ts';
+import { configureDatabase } from './server/db.ts';
+import { createLocalD1Adapter } from './server/localD1Adapter.ts';
 import { createApiRouter } from './server/routes.ts';
 
 async function startServer() {
+  const localD1 = await createLocalD1Adapter();
+  configureDatabase(localD1);
+  setDatabaseModeState('local_sqlite');
+
   const app = express();
   app.set('trust proxy', 1);
   app.use(express.json({ limit: '1mb' }));
@@ -43,18 +49,26 @@ async function startServer() {
 
   app.options('/icon.png', (_req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.status(204).end();
   });
 
   app.get('/icon.png', (_req, res) => {
-    const publicIcon = path.resolve(process.cwd(), 'public', 'icon.png');
-    if (fs.existsSync(publicIcon)) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-      res.type('image/png');
-      res.sendFile(publicIcon);
-      return;
+    const candidates = [
+      path.resolve(process.cwd(), 'public', 'icon.png'),
+      path.resolve(process.cwd(), 'dist', 'icon.png'),
+      path.resolve(process.cwd(), 'src', 'assets', 'images', 'lova_emblem_1794836082450.jpg'),
+    ];
+    for (const filePath of candidates) {
+      if (fs.existsSync(filePath)) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.type(filePath.endsWith('.jpg') ? 'image/jpeg' : 'image/png');
+        res.sendFile(filePath);
+        return;
+      }
     }
     res.status(404).end();
   });

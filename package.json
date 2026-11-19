@@ -11,11 +11,12 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "deploy:pages": "npm run build && npx wrangler pages deploy dist",
-    "deploy:worker": "npm run build && npx wrangler deploy -c wrangler.worker.toml"
+    "deploy:worker": "npm run build && npx wrangler deploy -c wrangler.worker.toml",
+    "d1:migrate:local": "npx wrangler d1 execute lova-mining-db --local --file=./schema.sql",
+    "d1:migrate:remote": "npx wrangler d1 execute lova-mining-db --remote --file=./schema.sql"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
-    "@supabase/supabase-js": "^2.119.0",
     "@tailwindcss/vite": "^4.3.3",
     "@ton/core": "^0.63.1",
     "@tonconnect/ui-react": "^5.0.3",

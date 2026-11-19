@@ -62,6 +62,15 @@ export function WalletView({
   const isKycVerified = Boolean(
     activeWallet && activeWallet.is_verified && !activeWallet.is_suspended
   );
+  const isPrivatePreview =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname === '0.0.0.0' ||
+      window.location.hostname.endsWith('.run.app'));
+  const hasPublicManifestOverride = Boolean(
+    (import.meta.env.VITE_TONCONNECT_MANIFEST_URL || '').trim() || systemStatus.publicAppUrl
+  );
 
   const loadOnChainBalances = async () => {
     if (!activeWallet) {
@@ -279,6 +288,22 @@ export function WalletView({
             </div>
             <TonConnectButton />
           </div>
+
+          {isPrivatePreview && !hasPublicManifestOverride && !activeWallet && (
+            <div className="p-3.5 rounded-2xl bg-blue-950/30 border border-blue-500/30 text-xs text-blue-100/90 space-y-1">
+              <div className="flex items-center gap-2 font-semibold text-blue-200">
+                <Info className="w-4 h-4 text-blue-400 shrink-0" />
+                Private Preview Domain Notice
+              </div>
+              <p className="leading-relaxed text-blue-100/80">
+                External TON wallets cannot fetch{' '}
+                <code className="font-mono">/tonconnect-manifest.json</code> from an auth-gated
+                preview URL. Deploy to Cloudflare Workers/Pages or set{' '}
+                <code className="font-mono">APP_URL</code> to connect Tonkeeper without manifest
+                errors.
+              </p>
+            </div>
+          )}
 
           {activeWallet ? (
             <div className="p-4 rounded-2xl bg-[#070B17] border border-slate-800 space-y-3">
